@@ -1,0 +1,43 @@
+ManifestFileVersion: 0
+CRC: 4233764092
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: cd8445af591358b92de748621b77f32a
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 152581d75c78dfba783b23cce9ef9b94
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: cd8445af591358b92de748621b77f32a
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 23
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 33
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 74
+  Script: {instanceID: 0}
+- Class: 91
+  Script: {instanceID: 0}
+- Class: 95
+  Script: {instanceID: 0}
+- Class: 137
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/Shaders/MouthShader.shader
+- Assets/CharacherModel/Izuna_Original_Mesh/CharacterIzuna.prefab
+Dependencies: []
