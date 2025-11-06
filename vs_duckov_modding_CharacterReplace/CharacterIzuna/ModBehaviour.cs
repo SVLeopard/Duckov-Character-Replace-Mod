@@ -48,19 +48,33 @@ namespace CharacterIzuna
         private bool wasMoving;
 
         private bool wasDashing;
-
+        /// <summary>
+        /// 嘎嘎叫绑定的新输入
+        /// </summary>
         private InputAction newAction = new InputAction();
-
+        /// <summary>
+        /// 嘎嘎叫音频文件路径列表
+        /// </summary>
         private List<string> soundPath = new List<string>();
-
+        /// <summary>
+        /// 嘎嘎叫是否启用
+        /// </summary>
         private bool quackEnabled = false;
-
+        /// <summary>
+        /// 是否显示武器
+        /// </summary>
         private bool isGunActive = true;
-
+        /// <summary>
+        /// 是否为射击状态
+        /// </summary>
         private bool isTriggerInput = false;
-
+        /// <summary>
+        /// 射击键是否按下
+        /// </summary>
         private bool isTriggerDown = false;
-
+        /// <summary>
+        /// 手持物品的 MeshRenderer
+        /// </summary>
         private List<MeshRenderer> mrToHide = new List<MeshRenderer>();
 
 
@@ -90,8 +104,13 @@ namespace CharacterIzuna
             GameManager.MainPlayerInput.onControlsChanged += OnControlsChanged;
         }
 
+        /// <summary>
+        /// 当玩家更改键位时调用
+        /// </summary>
+        /// <param name="input"></param>
         private void OnControlsChanged(PlayerInput input)
         {
+            //延迟一些执行保证更改的键位已经保存
             Invoke(nameof(InitQuackKey), 0.25f);
         }
 
@@ -115,31 +134,40 @@ namespace CharacterIzuna
             }
             Debug.Log("CharacterIzuna 已禁用");
         }
-
-
+        /// <summary>
+        /// 播放一次近战动画
+        /// </summary>
+        /// <param name="agent"></param>
         private void MeleeAnim(DuckovItemAgent agent)
         {
             if (characterAnimator == null) return;
             characterAnimator.Play("Melee");
         }
-
+        /// <summary>
+        /// 更改嘎嘎叫按键的功能
+        /// </summary>
         private void InitQuackKey()
         {
-            InitSoundFilePath();
+            InitSoundFilePath();    //重新检查声音文件
             if (soundPath.Count < 1)
             {
                 Debug.Log("CharacterIzuna : 声音文件不存在！");
                 return;
             }
+            //获取游戏内置的按键输入并禁用
             InputActionAsset actions = GameManager.MainPlayerInput.actions;
             InputAction quackAction = actions.FindAction("Quack");
             quackAction.Disable();
+            //创建一个同键位的新输入并绑定事件
             newAction = new InputAction();
             newAction.AddBinding(quackAction.controls[0]);
             newAction.performed += PlaySound;
             newAction.Enable();
         }
 
+        /// <summary>
+        /// 禁用自定义嘎嘎叫按键
+        /// </summary>
         private void DisabelQuack()
         {
             if (!quackEnabled) return;
@@ -151,12 +179,18 @@ namespace CharacterIzuna
             quackAction.Enable();
         }
 
+        /// <summary>
+        /// 发出一些声音
+        /// </summary>
+        /// <param name="context"></param>
         private void PlaySound(InputAction.CallbackContext context)
         {
             if (CharacterMainControl.Main == null) return;
+            //播放列表中随机音频
             int random = UnityEngine.Random.Range(0, soundPath.Count);
             AudioManager.PostCustomSFX(soundPath[random]);
 
+            //在角色位置搞出一点敌人能听到的动静
             AISound sound = new AISound();
             sound.fromCharacter = CharacterMainControl.Main;
             sound.fromObject = base.gameObject;
@@ -166,20 +200,29 @@ namespace CharacterIzuna
             sound.radius = 15f;
             AIMainBrain.MakeSound(sound);
         }
-
+        /// <summary>
+        /// 游戏事件文本变化
+        /// </summary>
+        /// <param name="obj"></param>
         private void OnCommentChanged(string obj)
         {
             if (obj == "Setting character position...")
             {
+                //此时代表玩家模型已经加载完毕
                 Debug.Log("CharacterIzuna ：准备加载角色模型。");
                 ToggleModel(true);
             }
             if (obj == "Starting up...")
             {
+                //此时表示正在卸载场景
                 ToggleModel(false);
             }
         }
-
+        /// <summary>
+        /// 根据父级数量返回制表符，查看场景结构时使用
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
         private string GetSpace(Transform t)
         {
             string space = "";
@@ -194,16 +237,21 @@ namespace CharacterIzuna
 
         private void OnDestroy()
         {
-        }
 
+        }
+        /// <summary>
+        /// 替换玩家模型
+        /// </summary>
         private void SetModel()
         {
+            //初始化参数
             LevelManager instance = LevelManager.Instance;
             characterModel = instance.MainCharacter.characterModel;
             movement = characterModel.characterMainControl.movementControl;
             wasRunning = movement.Running;
             wasMoving = movement.Moving;
             wasDashing = characterModel.characterMainControl.Dashing;
+            //隐藏原版模型并加载自定义模型
             HideDuck();
             InitializeCharacter(loadedObject);
         }
@@ -211,14 +259,16 @@ namespace CharacterIzuna
         private void RestoreModel()
         {
             //RestoreDuck();
-            //UnloadUnityHoshino();
             //ResetAnimation();
         }
-
+        /// <summary>
+        /// 隐藏原版玩家角色模型
+        /// </summary>
         private void HideDuck()
         {
             Transform transform = characterModel.transform;
             hideGameObject.Clear();
+            //根据路径寻找 gameobject 并关闭
             foreach (string n in pathsToHide)
             {
                 Transform target = transform.Find(n);
@@ -229,7 +279,9 @@ namespace CharacterIzuna
                 }
             }
         }
-
+        /// <summary>
+        /// 恢复原版玩家模型
+        /// </summary>
         private void RestoreDuck()
         {
             foreach (GameObject gameObject in this.hideGameObject)
@@ -238,7 +290,9 @@ namespace CharacterIzuna
             }
             this.hideGameObject.Clear();
         }
-
+        /// <summary>
+        /// 卸载生成的自定义模型
+        /// </summary>
         private void UnloadModel()
         {
             bool flag = instantedObject != null;
@@ -249,14 +303,18 @@ namespace CharacterIzuna
             }
             characterAnimator = null;
         }
-
+        /// <summary>
+        /// 重置动画参数
+        /// </summary>
         private void ResetAnimation()
         {
             wasMoving = false;
             wasRunning = false;
             wasDashing = false;
         }
-
+        /// <summary>
+        /// 根据当前 isGunActive 重载右手中的物品是否显示
+        /// </summary>
         private void ReloadHoldingVisual()
         {
             for (int i = 0; i < mrToHide.Count; i++)
@@ -265,13 +323,19 @@ namespace CharacterIzuna
             }
         }
 
-
+        /// <summary>
+        /// 查找所有手持物品的 MeshRenderer
+        /// </summary>
         private void LoadAllHoldingItemRenderers()
         {
             Transform targetTransform = CharacterMainControl.Main.RightHandSocket;
             mrToHide.Clear();
             LoadRenderers(targetTransform);
         }
+        /// <summary>
+        /// 递归查找 target 下所有 MeshRenderer
+        /// </summary>
+        /// <param name="target"></param>
         private void LoadRenderers(Transform target)
         {
             MeshRenderer mr = target.GetComponent<MeshRenderer>();
@@ -294,12 +358,14 @@ namespace CharacterIzuna
             bool running = movement.Running;
             bool dashing = characterModel.characterMainControl.Dashing;
 
+            //翻滚一次
             if (dashing && dashing != wasDashing) characterAnimator.Play("Dash");
 
             //地堡奔跑速度恒定为7.5582
             //角色当前移动速度为 CharacterMainControl.Main.Velocity.magnitude
             //角色当前最大奔跑速度为 CharacterMainControl.Main.CharacterRunSpeed
-            //speed参数应夹在0.1到1.5之间
+            //speed参数应夹在0.1到1.3之间
+            //或者根据实际情况调整
 
             characterAnimator.SetBool("Running", true);
             float speedProgress = CharacterMainControl.Main.Velocity.magnitude / 7f;
@@ -312,13 +378,16 @@ namespace CharacterIzuna
             wasMoving = moving;
             wasRunning = running;
             wasDashing = dashing;
-
+            //使用右键瞄准或者正在腰射状态
             bool aiming = CharacterMainControl.Main.IsInAdsInput || isTriggerInput;
             characterAnimator.SetBool("Aiming", aiming);
 
             characterAnimator.SetFloat("Attack", isTriggerDown ? 0.99f : 0f);
         }
-
+        /// <summary>
+        /// 读取AB包协程
+        /// </summary>
+        /// <returns></returns>
         IEnumerator LoadCharacterBundle()
         {
             if (loadedBundle != null) 
@@ -346,7 +415,10 @@ namespace CharacterIzuna
             Debug.Log("CharacterIzuna : 模型资源已加载");
             yield return null;
         }
-
+        /// <summary>
+        /// 初始化自定义角色模型
+        /// </summary>
+        /// <param name="characterObject"></param>
         private void InitializeCharacter(GameObject characterObject)
         {
             characterObject.layer = LayerMask.NameToLayer("Default");
@@ -356,21 +428,31 @@ namespace CharacterIzuna
             characterAnimator = instantedObject.GetComponent<Animator>();
             LoadAllHoldingItemRenderers();
             ReloadHoldingVisual();
+            //注册相关事件
             CharacterMainControl.Main.OnAttackEvent += MeleeAnim;
             CharacterMainControl.Main.OnHoldAgentChanged += HoldingItemChanged;
             CharacterMainControl.Main.OnTriggerInputUpdateEvent += TriggerEvent;
             CharacterMainControl.Main.OnActionStartEvent += ActionStart;
         }
-
+        /// <summary>
+        /// 角色行为开始时
+        /// </summary>
+        /// <param name="chara"></param>
         private void ActionStart(CharacterActionBase chara)
         {
             if (characterAnimator == null) return;
+            //判断是否为换弹行为
             if (chara.ActionPriority() == CharacterActionBase.ActionPriorities.Reload)
             {
                 characterAnimator.Play("Reload");
             }
         }
-
+        /// <summary>
+        /// 当玩家设计状态变化时
+        /// </summary>
+        /// <param name="arg1">是否正在射击</param>
+        /// <param name="arg2">当前帧是否为触发</param>
+        /// <param name="arg3">当前帧是否为释放</param>
         private void TriggerEvent(bool arg1, bool arg2, bool arg3)
         {
             isTriggerDown = arg1;
@@ -381,26 +463,38 @@ namespace CharacterIzuna
             }
             else
             {
+                //连续点射状态下延迟一些时间恢复为释放状态
                 Invoke(nameof(CancleTriggerState), 0.3f);
             }
         }
-
+        /// <summary>
+        /// 取消射击状态
+        /// </summary>
         private void CancleTriggerState()
         {
             isTriggerInput = false;
         }
-
+        /// <summary>
+        /// 玩家手持物品变化时
+        /// </summary>
+        /// <param name="agent"></param>
         private void HoldingItemChanged(DuckovItemAgent agent)
         {
             LoadAllHoldingItemRenderers();
             ReloadHoldingVisual();
         }
 
-
+        /// <summary>
+        /// dll 文件的路径
+        /// </summary>
+        /// <returns></returns>
         private string GetDllDirectory()
         {
             return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         }
+        /// <summary>
+        /// 加载所有可用的音频文件，只要文件名为 (0-99的数字).wav 就可以读取
+        /// </summary>
         private void InitSoundFilePath()
         {
             soundPath.Clear();
@@ -410,7 +504,7 @@ namespace CharacterIzuna
                 if (File.Exists(p))
                 {
                     soundPath.Add(p);
-                    UnityEngine.Debug.Log("CharacterIzuna ：已加载音频 " + p);
+                    Debug.Log("CharacterIzuna ：已加载音频 " + p);
                 }
             }
         }
