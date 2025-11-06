@@ -73,6 +73,10 @@ namespace CharacterIzuna
         /// </summary>
         private bool isTriggerDown = false;
         /// <summary>
+        /// 当前是否正在使用近战武器
+        /// </summary>
+        private bool isMelee = false;
+        /// <summary>
         /// 手持物品的 MeshRenderer
         /// </summary>
         private List<MeshRenderer> mrToHide = new List<MeshRenderer>();
@@ -448,13 +452,15 @@ namespace CharacterIzuna
             }
         }
         /// <summary>
-        /// 当玩家设计状态变化时
+        /// 当玩家射击状态变化时
         /// </summary>
         /// <param name="arg1">是否正在射击</param>
         /// <param name="arg2">当前帧是否为触发</param>
         /// <param name="arg3">当前帧是否为释放</param>
         private void TriggerEvent(bool arg1, bool arg2, bool arg3)
         {
+            //如果当前持有的是近战武器，射击状态不会改变
+            if (isMelee) return;
             isTriggerDown = arg1;
             if (arg1)
             {
@@ -480,6 +486,7 @@ namespace CharacterIzuna
         /// <param name="agent"></param>
         private void HoldingItemChanged(DuckovItemAgent agent)
         {
+            isMelee = agent.handAnimationType == HandheldAnimationType.meleeWeapon;
             LoadAllHoldingItemRenderers();
             ReloadHoldingVisual();
         }
