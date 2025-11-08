@@ -1,13 +1,17 @@
 ﻿using Duckov;
+using ItemStatsSystem;
+using ItemStatsSystem.Items;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Security.Cryptography;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.ProBuilder.Shapes;
 
 namespace CharacterIzuna
 {
@@ -18,20 +22,24 @@ namespace CharacterIzuna
 
         private Movement movement;
 
-        private string[] pathsToHide = new string[]
-        {
-            "CustomFaceInstance/DuckBody",
-            "CustomFaceInstance/Armature/Root/Pelvis/Thigh.L",
-            "CustomFaceInstance/Armature/Root/Pelvis/Thigh.R",
-            "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/Head",
-            "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/UpperArm.L/Wings.L",
-            "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/UpperArm.R/Wings.R",
-            "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/ArmorSocket",
-            "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/BackpackSocket",
-            "CustomFaceInstance/Armature/Root/Pelvis/TailSocket"
-        };
+        //隐藏模型逻辑直接改版，这些不要了
+        //private string[] pathsToHide = new string[]
+        //{
+        //    "CustomFaceInstance/DuckBody",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Thigh.L",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Thigh.R",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/Head",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/UpperArm.L/Wings.L",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/UpperArm.R/Wings.R",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/ArmorSocket",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/Spine.001/Spine.002/Spine.003/Spine.004/BackpackSocket",
+        //    "CustomFaceInstance/Armature/Root/Pelvis/TailSocket"
+        //};
 
-        private List<GameObject> hideGameObject = new List<GameObject>();
+        /// <summary>
+        ///装备槽位和对应的 transform 
+        /// </summary>
+        private Dictionary<string, Transform> slotTransforms = new Dictionary<string, Transform>();
 
         private AssetBundle loadedBundle;
 
@@ -82,6 +90,10 @@ namespace CharacterIzuna
         private List<MeshRenderer> mrToHide = new List<MeshRenderer>();
 
 
+        private List<MeshRenderer> characterMr = new List<MeshRenderer>();
+        private List<SkinnedMeshRenderer> characterSmr = new List<SkinnedMeshRenderer>();
+
+
         private void Update()
         {
             if (instantedObject != null) UpdateAnimation();
@@ -90,6 +102,44 @@ namespace CharacterIzuna
                 isGunActive = !isGunActive;
                 LoadAllHoldingItemRenderers();
                 ReloadHoldingVisual();
+            }
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                Debug.Log("CharacterMainControl.Main.modelRoot : " + CharacterMainControl.Main.modelRoot.name);
+
+                characterMr.Clear();
+                characterSmr.Clear();
+                LogName(characterModel.transform.parent);
+                Debug.Log($"找到 {characterMr.Count} 个角色模型MeshRenderer");
+                for (int i = 0; i < characterMr.Count; i++) Debug.Log($"{i + 1} : {characterMr[i].gameObject.name}");
+                Debug.Log($"找到 {characterSmr.Count} 个角色模型SkinnedMeshRenderer");
+                for (int i = 0; i < characterSmr.Count; i++) Debug.Log($"{i + 1} : {characterSmr[i].gameObject.name}");
+            }
+            //测试切换手持物品为空测试
+            //if (Input.GetKeyDown(KeyCode.Keypad0))
+            //{
+            //    if (CharacterMainControl.Main.CurrentHoldItemAgent == null) Debug.Log("CurrentHoldItemAgent is null");
+            //    else Debug.Log("CurrentHoldItemAgent is " + CharacterMainControl.Main.CurrentHoldItemAgent.name);
+
+            //    CharacterMainControl.Main.ChangeHoldItem(null);
+            //}
+        }
+
+        private void LogName(Transform target)
+        {
+            string result = string.Format("{0}{1}", GetSpace(target), target.name);
+            Debug.Log(result);
+
+            MeshRenderer mr = target.GetComponent<MeshRenderer>();
+            SkinnedMeshRenderer smr = target.GetComponent<SkinnedMeshRenderer>();
+            if (mr != null) characterMr.Add(mr);
+            if (smr != null) characterSmr.Add(smr);
+            if (target.childCount > 0)
+            {
+                for (int i = 0; i < target.childCount; i++)
+                {
+                    LogName(target.GetChild(i));
+                }
             }
         }
 
@@ -126,6 +176,7 @@ namespace CharacterIzuna
             CharacterMainControl.Main.OnTriggerInputUpdateEvent -= TriggerEvent;
             CharacterMainControl.Main.OnActionStartEvent -= ActionStart;
             GameManager.MainPlayerInput.onControlsChanged -= OnControlsChanged;
+            CharacterMainControl.OnMainCharacterSlotContentChangedEvent -= SlotContentChanged;
             if (loadedObject != null)
             {
                 Destroy(loadedObject);
@@ -255,9 +306,29 @@ namespace CharacterIzuna
             wasRunning = movement.Running;
             wasMoving = movement.Moving;
             wasDashing = characterModel.characterMainControl.Dashing;
+            CollectSlotTransforms();
             //隐藏原版模型并加载自定义模型
-            HideDuck();
             InitializeCharacter(loadedObject);
+            HideDuck();
+        }
+
+        /// <summary>
+        /// 生成所有要隐藏的槽位信息
+        /// </summary>
+        private void CollectSlotTransforms()
+        {
+            slotTransforms.Clear();
+            //需要隐藏的槽位
+            //Helmat
+            slotTransforms.Add("Helmat", characterModel.HelmatSocket);
+            //Armor
+            slotTransforms.Add("Armor", characterModel.ArmorSocket);
+            //FaceMask
+            slotTransforms.Add("FaceMask", characterModel.FaceMaskSocket);
+            //Headset
+            slotTransforms.Add("Headset", characterModel.HelmatSocket);
+            //Backpack
+            slotTransforms.Add("Backpack", characterModel.BackpackSocket);
         }
 
         private void RestoreModel()
@@ -270,29 +341,38 @@ namespace CharacterIzuna
         /// </summary>
         private void HideDuck()
         {
-            Transform transform = characterModel.transform;
-            hideGameObject.Clear();
-            //根据路径寻找 gameobject 并关闭
-            foreach (string n in pathsToHide)
+            Transform playerModel = characterModel.transform;
+            SkinnedMeshRenderer duckBody = playerModel.Find("CustomFaceInstance/DuckBody").GetComponent<SkinnedMeshRenderer>();
+            if (duckBody != null) duckBody.enabled = false;
+            SetAllMeshRendererInChild(playerModel, false);
+        }
+
+        /// <summary>
+        /// 禁用一个 Transform 下所有 MeshRenderer
+        /// </summary>
+        /// <param name="target"></param>
+        private void SetAllMeshRendererInChild(Transform target, bool active)
+        {
+            MeshRenderer mr = target.GetComponent<MeshRenderer>();
+            if (mr != null) mr.enabled = active;
+            if (target.childCount > 0)
             {
-                Transform target = transform.Find(n);
-                if (target != null)
+                for (int i = 0; i < target.childCount; i++)
                 {
-                    hideGameObject.Add(target.gameObject);
-                    target.gameObject.SetActive(false);
+                    SetAllMeshRendererInChild(target.GetChild(i), active);
                 }
             }
         }
+
         /// <summary>
         /// 恢复原版玩家模型
         /// </summary>
         private void RestoreDuck()
         {
-            foreach (GameObject gameObject in this.hideGameObject)
-            {
-                gameObject.SetActive(true);
-            }
-            this.hideGameObject.Clear();
+            Transform playerModel = characterModel.transform;
+            SkinnedMeshRenderer duckBody = playerModel.Find("CustomFaceInstance/DuckBody").GetComponent<SkinnedMeshRenderer>();
+            if (duckBody != null) duckBody.enabled = true;
+            SetAllMeshRendererInChild(playerModel, true);
         }
         /// <summary>
         /// 卸载生成的自定义模型
@@ -437,13 +517,37 @@ namespace CharacterIzuna
             CharacterMainControl.Main.OnHoldAgentChanged += HoldingItemChanged;
             CharacterMainControl.Main.OnTriggerInputUpdateEvent += TriggerEvent;
             CharacterMainControl.Main.OnActionStartEvent += ActionStart;
+            CharacterMainControl.OnMainCharacterSlotContentChangedEvent += SlotContentChanged;
         }
+        /// <summary>
+        /// 玩家装备槽位变动事件
+        /// </summary>
+        /// <param name="control"></param>
+        /// <param name="slot"></param>
+        private void SlotContentChanged(CharacterMainControl control, Slot slot)
+        {
+            //先检查这个槽位是否是需要隐藏模型的槽位
+            if (!slotTransforms.ContainsKey(slot.Key)) return;
+            StartCoroutine(OnSlotContentChangedIEnumerator(slot.Key));
+        }
+        /// <summary>
+        /// 装备变更并非即时生效，等待下一帧执行
+        /// </summary>
+        /// <param name="slotName"></param>
+        /// <returns></returns>
+        IEnumerator OnSlotContentChangedIEnumerator(string slotName)
+        {
+            yield return new WaitForEndOfFrame();
+            SetAllMeshRendererInChild(slotTransforms[slotName], false);
+        }
+
         /// <summary>
         /// 角色行为开始时
         /// </summary>
         /// <param name="chara"></param>
         private void ActionStart(CharacterActionBase chara)
         {
+            Debug.Log(chara.ActionPriority());
             if (characterAnimator == null) return;
             //判断是否为换弹行为
             if (chara.ActionPriority() == CharacterActionBase.ActionPriorities.Reload)
@@ -486,6 +590,7 @@ namespace CharacterIzuna
         /// <param name="agent"></param>
         private void HoldingItemChanged(DuckovItemAgent agent)
         {
+            if (agent == null) return;
             isMelee = agent.handAnimationType == HandheldAnimationType.meleeWeapon;
             LoadAllHoldingItemRenderers();
             ReloadHoldingVisual();
@@ -518,3 +623,307 @@ namespace CharacterIzuna
 
     }
 }
+
+//角色结构
+//----0_CharacterModel_Custom_Template(Clone)
+//------CustomFaceInstance
+//--------Armature
+//----------Root
+//------------Pelvis
+//--------------Spine.001
+//----------------Spine.002
+//------------------Spine.003
+//--------------------Spine.004
+//----------------------Head
+//------------------------Duck_Beak
+//------------------------Duck_Eye.L
+//------------------------Duck_Eye.R
+//------------------------HeadTip
+//--------------------------HeadTip_end
+//------------------------HelmatSocket
+//--------------------------HeadCollider(Clone)
+//------------------------FaceMaskSocket
+//------------------------HairSocket
+//--------------------------HeadPart 06 Kun(Clone)
+//----------------------------Mouth
+//------------------------------Hair_Kunkun
+//------------------------MouthSocket
+//--------------------------Mouth_2(Clone)
+//----------------------------Center
+//------------------------------Duck_Beak
+//------------------------TestEyePart 6_a(Clone)
+//--------------------------LeftEye
+//----------------------------Face_Eye_Type_02
+//--------------------------RightEye
+//----------------------------Face_Eye_Type_03
+//------------------------TestEyebrowPart 6(Clone)
+//--------------------------LeftEye
+//----------------------------Face_Eyebrow_Type_02
+//--------------------------RightEye
+//----------------------------Face_Eyebrow_Type_03
+//----------------------UpperArm.L
+//------------------------Elbow.L
+//--------------------------ForeArm.L
+//----------------------------Hand.L
+//------------------------------Hand.Soket.L
+//--------------------------------Hand.Soket.L_end
+//--------------------------------LeftHandSocket
+//------------------------------HandObj.L
+//------------------------Wings.L
+//--------------------------0_Wing_default(Clone)
+//----------------------------Root
+//------------------------------Wings.L_1
+//----------------------UpperArm.R
+//------------------------Elbow.R
+//--------------------------ForeArm.R
+//----------------------------Hand.R
+//------------------------------Hand.Soket.R
+//--------------------------------Hand.Soket.R_end
+//--------------------------------RightHandSocket
+//--------------------------------TestBowSocket
+//--------------------------------MeleeWeaponSocket
+//----------------------------------MeleeWeaponSocketFixed
+//------------------------------HandObj.R
+//------------------------Wings.R
+//--------------------------0_Wing_default(Clone)
+//----------------------------Root
+//------------------------------Wings.L_1
+//----------------------ArmorSocket
+//----------------------BackpackSocket
+//--------------Tail
+//----------------Tail.001
+//------------------Tail.001_end
+//--------------Thigh.L
+//----------------Foot.L
+//------------------Duck_Foot_L
+//------------------Foot.L_end
+//------------------Sphere (1)
+//------------------FootLSocket
+//--------------------0_FootDefault_L(Clone)
+//----------------------ScaleRoot
+//------------------------DuckFoot
+//--------------Thigh.R
+//----------------Foot.R
+//------------------Duck_Foot_R
+//------------------Foot.R_end
+//------------------Sphere
+//------------------FootRSocket
+//--------------------0_FootDefault_L(Clone)
+//----------------------ScaleRoot
+//------------------------DuckFoot
+//--------------TailSocket
+//----------------Tail_1(Clone)
+//------------------Center
+//--------------------Crest_II.003
+//--------DuckBody
+//--------Arms
+//----------Line
+//----------Line (1)
+//----------Line (2)
+//----------Line (3)
+//------RunParticle
+//--------Particle System
+//------PopTextSocket
+//------GrassCollider
+//------CharacterIzuna(Clone)
+//--------Izuna_Original_Mesh
+//----------bone_Boom_01
+//------------bone_Boom_02
+//--------------bone_Boom_03
+//----------------bone_Boom_04
+//----------bone_root
+//------------Bip001
+//--------------Bip001 Pelvis
+//----------------Bip001 L Thigh
+//------------------Bip001 L Calf
+//--------------------Bip001 L Foot
+//----------------------Bip001 L Toe0
+//----------------Bip001 R Thigh
+//------------------Bip001 R Calf
+//--------------------Bip001 R Foot
+//----------------------Bip001 R Toe0
+//----------------Bip001 Spine
+//------------------Bip001 Spine1
+//--------------------Bip001 L Clavicle
+//----------------------Bip001 L UpperArm
+//------------------------Bip001 L Forearm
+//--------------------------Bip001 L Hand
+//----------------------------Bip001 L Finger0
+//------------------------------Bip001 L Finger01
+//----------------------------Bip001 L Finger1
+//------------------------------Bip001 L Finger11
+//----------------------------Bip001 L Finger2
+//------------------------------Bip001 L Finger21
+//----------------------------Bip001 L Finger3
+//------------------------------Bip001 L Finger31
+//----------------------------Bip001 L Finger4
+//------------------------------Bip001 L Finger41
+//--------------------------Bone L ForeArm Twist
+//----------------------Bip001_B_L Deltoid
+//--------------------Bip001 Neck
+//----------------------Bip001 Head
+//------------------------Bip001 bone_eye_D_L
+//--------------------------Bip001 bone_eye_D_L_01
+//--------------------------Bip001 bone_eye_D_L_02
+//------------------------Bip001 bone_eye_D_R
+//--------------------------Bip001 bone_eye_D_R_01
+//--------------------------Bip001 bone_eye_D_R_02
+//------------------------Bip001 eye_L
+//--------------------------Bip001 eye_L_1
+//--------------------------Bip001 eye_L_2
+//------------------------Bip001 eye_R
+//--------------------------Bip001 eye_R_1
+//--------------------------Bip001 eye_R_2
+//------------------------Bip001 Xtra_eyeblowL1
+//------------------------Bip001 Xtra_eyeblowL2
+//------------------------Bip001 Xtra_eyeblowR1
+//------------------------Bip001 Xtra_eyeblowR2
+//------------------------Bip001 Xtra_eyeL
+//------------------------Bip001 Xtra_eyeR
+//------------------------bone_ear_L_01
+//--------------------------bone_ear_L_02
+//------------------------bone_ear_R_01
+//--------------------------bone_ear_R_02
+//------------------------bone_hair_f_01
+//--------------------------bone_hair_f_02
+//------------------------bone_hair_f_l_01
+//--------------------------bone_hair_f_l_02
+//------------------------bone_hair_f_r_01
+//--------------------------bone_hair_f_r_02
+//------------------------bone_hair_m_l_01
+//--------------------------bone_hair_m_l_02
+//----------------------------bone_hair_m_l_03
+//----------------------------bone_hairdecor_04
+//------------------------bone_hair_m_r_01
+//--------------------------bone_hair_m_r_02
+//----------------------------bone_hair_m_r_03
+//------------------------bone_hair_R_01
+//--------------------------bone_hair_R_02
+//----------------------------bone_hair_R_03
+//--------------------------bone_hairdecor_01
+//----------------------------bone_hairdecor_02
+//------------------------------bone_hairdecor_03
+//------------------------Izuna_Original_Halo
+//--------------------------Izuna_Original_Halo_0
+//--------------------Bip001 R Clavicle
+//----------------------Bip001 R UpperArm
+//------------------------Bip001 R Forearm
+//--------------------------Bip001 R Hand
+//----------------------------Bip001 R Finger0
+//------------------------------Bip001 R Finger01
+//----------------------------Bip001 R Finger1
+//------------------------------Bip001 R Finger11
+//----------------------------Bip001 R Finger2
+//------------------------------Bip001 R Finger21
+//----------------------------Bip001 R Finger3
+//------------------------------Bip001 R Finger31
+//----------------------------Bip001 R Finger4
+//------------------------------Bip001 R Finger41
+//--------------------------Bone R ForeArm Twist
+//--------------------------bone_Sodetake_R_01
+//----------------------------bone_Sodetake_R_02
+//----------------------Bip001_B_R Deltoid
+//--------------------bone_Muffler_L_01
+//----------------------bone_Muffler_L_02
+//------------------------bone_Muffler_L_03
+//--------------------------bone_Muffler_L_04
+//----------------------------bone_Muffler_L_05
+//------------------------------bone_Muffler_L_06
+//--------------------bone_Muffler_R_01
+//----------------------bone_Muffler_R_02
+//------------------------bone_Muffler_R_03
+//--------------------------bone_Muffler_R_04
+//----------------------------bone_Muffler_R_05
+//------------------------------bone_Muffler_R_06
+//--------------------bone_Tie_01
+//----------------------bone_Tie_02
+//----------------bone_Ribbon_DL_01
+//------------------bone_Ribbon_DL_02
+//----------------bone_Ribbon_DR_01
+//------------------bone_Ribbon_DR_02
+//----------------bone_Ribbon_UL_01
+//------------------bone_Ribbon_UL_02
+//----------------bone_Ribbon_UR_01
+//------------------bone_Ribbon_UR_02
+//----------------bone_skirtB00
+//------------------bone_skirtB01
+//--------------------bone_skirtB02
+//----------------------bone_skirtB03
+//----------------bone_skirtB_L_00
+//------------------bone_skirtB_L_01
+//--------------------bone_skirtB_L_02
+//----------------------bone_skirtB_L_03
+//----------------bone_skirtB_R_00
+//------------------bone_skirtB_R_01
+//--------------------bone_skirtB_R_02
+//----------------------bone_skirtB_R_03
+//----------------bone_skirtF00
+//------------------bone_skirtF01
+//--------------------bone_skirtF02
+//----------------bone_skirtF_L_00
+//------------------bone_skirtF_L_01
+//--------------------bone_skirtF_L_02
+//----------------------bone_skirtF_L_03
+//----------------bone_skirtF_R_00
+//------------------bone_skirtF_R_01
+//--------------------bone_skirtF_R_02
+//----------------------bone_skirtF_R_03
+//----------------bone_skirtL00
+//------------------bone_skirtL01
+//--------------------bone_skirtL02
+//----------------------bone_skirtL03
+//----------------bone_skirtR00
+//------------------bone_skirtR01
+//--------------------bone_skirtR02
+//----------------------bone_skirtR03
+//----------------bone_Sodehaba_L_01
+//------------------bone_Sodehaba_L_02
+//----------------bone_Tail_01
+//------------------bone_Tail_02
+//--------------------bone_Tail_03
+//----------------------bone_Tail_04
+//------------------------bone_Tail_05
+//--------------Bip001_Weapon
+//----------------bone_buttstock
+//----------------bone_Handle
+//----------------bone_magazine_01
+//----------------bone_Weapondecor_01
+//----------------bone_Weapondecor_02
+//----------------bone_Weapondecor_03
+//------------------bone_Weapondecor_04
+//----------------bone_Weapondecor_05
+//------------------bone_Weapondecor_06
+//----------------fire_01
+//----------------fire_02
+//------------fire_03
+//----------Izuna_Original_Body
+//----------Izuna_Original_Shuriken_Outline
+//----------Izuna_Original_Weapon
+//找到 22 个角色模型MeshRenderer
+//1 : Duck_Beak
+//2 : Duck_Eye.L
+//3 : Duck_Eye.R
+//4 : Hair_Kunkun
+//5 : Duck_Beak
+//6 : Face_Eye_Type_02
+//7 : Face_Eye_Type_03
+//8 : Face_Eyebrow_Type_02
+//9 : Face_Eyebrow_Type_03
+//10 : HandObj.L
+//11 : Wings.L_1
+//12 : HandObj.R
+//13 : Wings.L_1
+//14 : Duck_Foot_L
+//15 : Sphere(1)
+//16 : DuckFoot
+//17 : Duck_Foot_R
+//18 : Sphere
+//19 : DuckFoot
+//20 : Crest_II.003
+//21 : CharacterIzuna(Clone)
+//22 : Izuna_Original_Halo_0
+//找到 4 个角色模型SkinnedMeshRenderer
+//1 : DuckBody
+//2 : Izuna_Original_Body
+//3 : Izuna_Original_Shuriken_Outline
+//4 : Izuna_Original_Weapon

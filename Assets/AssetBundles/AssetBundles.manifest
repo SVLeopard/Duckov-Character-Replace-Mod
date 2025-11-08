@@ -1,7 +1,10 @@
 ManifestFileVersion: 0
-CRC: 1732870233
+CRC: 3262128492
 AssetBundleManifest:
   AssetBundleInfos:
     Info_0:
       Name: izuna
+      Dependencies: {}
+    Info_1:
+      Name: qimeila
       Dependencies: {}
