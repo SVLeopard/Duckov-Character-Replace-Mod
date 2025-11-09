@@ -353,6 +353,7 @@ namespace CharacterIzuna
         /// <param name="target"></param>
         private void SetAllMeshRendererInChild(Transform target, bool active)
         {
+            if (target.name.Contains("CharacterIzuna")) return;
             MeshRenderer mr = target.GetComponent<MeshRenderer>();
             if (mr != null) mr.enabled = active;
             if (target.childCount > 0)
