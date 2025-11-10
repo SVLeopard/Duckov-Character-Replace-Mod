@@ -1,17 +1,11 @@
 ﻿using Duckov;
-using ItemStatsSystem;
 using ItemStatsSystem.Items;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.NetworkInformation;
 using System.Reflection;
-using System.Security.Cryptography;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.ProBuilder.Shapes;
 
 namespace CharacterIzuna
 {
@@ -80,10 +74,6 @@ namespace CharacterIzuna
         /// 射击键是否按下
         /// </summary>
         private bool isTriggerDown = false;
-        /// <summary>
-        /// 当前是否正在使用近战武器
-        /// </summary>
-        private bool isMelee = false;
         /// <summary>
         /// 手持物品的 MeshRenderer
         /// </summary>
@@ -201,6 +191,7 @@ namespace CharacterIzuna
         private void MeleeAnim(DuckovItemAgent agent)
         {
             if (characterAnimator == null) return;
+
             characterAnimator.Play("Melee");
         }
         /// <summary>
@@ -287,7 +278,7 @@ namespace CharacterIzuna
         {
             string space = "";
             Transform currentParent = t.parent;
-            while (currentParent != null) 
+            while (currentParent != null)
             {
                 space += "--";
                 currentParent = currentParent.parent;
@@ -465,6 +456,7 @@ namespace CharacterIzuna
             else characterAnimator.SetFloat("MovingSpeed", 0);
 
 
+
             wasMoving = moving;
             wasRunning = running;
             wasDashing = dashing;
@@ -480,7 +472,7 @@ namespace CharacterIzuna
         /// <returns></returns>
         IEnumerator LoadCharacterBundle()
         {
-            if (loadedBundle != null) 
+            if (loadedBundle != null)
             {
                 Debug.Log("CharacterIzuna : 已经加载过资源包了");
                 yield break;
@@ -570,7 +562,7 @@ namespace CharacterIzuna
         private void TriggerEvent(bool arg1, bool arg2, bool arg3)
         {
             //如果当前持有的是近战武器，射击状态不会改变
-            if (isMelee) return;
+            if (CharacterMainControl.Main.CurrentHoldItemAgent.handAnimationType == HandheldAnimationType.meleeWeapon) return;
             isTriggerDown = arg1;
             if (arg1)
             {
@@ -597,7 +589,6 @@ namespace CharacterIzuna
         private void HoldingItemChanged(DuckovItemAgent agent)
         {
             if (agent == null) return;
-            isMelee = agent.handAnimationType == HandheldAnimationType.meleeWeapon;
             LoadAllHoldingItemRenderers();
             ReloadHoldingVisual();
         }
