@@ -4,8 +4,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using static UnityEngine.GraphicsBuffer;
 
 namespace CharacterIzuna
 {
@@ -79,6 +81,9 @@ namespace CharacterIzuna
         /// </summary>
         private List<MeshRenderer> mrToHide = new List<MeshRenderer>();
 
+        private string targetShaderName = "SodaCraft/SodaCharacter";
+
+
 
         //private List<MeshRenderer> characterMr = new List<MeshRenderer>();
         //private List<SkinnedMeshRenderer> characterSmr = new List<SkinnedMeshRenderer>();
@@ -93,6 +98,8 @@ namespace CharacterIzuna
                 LoadAllHoldingItemRenderers();
                 ReloadHoldingVisual();
             }
+
+            if (Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.M)) SetCharacterShader();
             //if (Input.GetKeyDown(KeyCode.L))
             //{
             //    Debug.Log("CharacterMainControl.Main.modelRoot : " + CharacterMainControl.Main.modelRoot.name);
@@ -304,8 +311,8 @@ namespace CharacterIzuna
             wasDashing = characterModel.characterMainControl.Dashing;
             CollectSlotTransforms();
             //隐藏原版模型并加载自定义模型
-            InitializeCharacter(loadedObject);
             HideDuck();
+            InitializeCharacter(loadedObject);
         }
 
         /// <summary>
@@ -455,8 +462,6 @@ namespace CharacterIzuna
             if (moving || running) characterAnimator.SetFloat("MovingSpeed", speedParam);
             else characterAnimator.SetFloat("MovingSpeed", 0);
 
-
-
             wasMoving = moving;
             wasRunning = running;
             wasDashing = dashing;
@@ -516,6 +521,11 @@ namespace CharacterIzuna
             CharacterMainControl.Main.OnTriggerInputUpdateEvent += TriggerEvent;
             CharacterMainControl.Main.OnActionStartEvent += ActionStart;
             CharacterMainControl.OnMainCharacterSlotContentChangedEvent += SlotContentChanged;
+            if (Application.platform == RuntimePlatform.OSXPlayer)
+            {
+                Debug.Log("当前运行环境为 Mac ，自动替换 Shader");
+                SetCharacterShader();
+            }
         }
         /// <summary>
         /// 玩家装备槽位变动事件
@@ -562,7 +572,11 @@ namespace CharacterIzuna
         private void TriggerEvent(bool arg1, bool arg2, bool arg3)
         {
             //如果当前持有的是近战武器，射击状态不会改变
-            if (CharacterMainControl.Main.CurrentHoldItemAgent.handAnimationType == HandheldAnimationType.meleeWeapon) return;
+            if (CharacterMainControl.Main.CurrentHoldItemAgent != null)
+            {
+                if (CharacterMainControl.Main.CurrentHoldItemAgent.handAnimationType == HandheldAnimationType.meleeWeapon) return;
+            }
+            else return;
             isTriggerDown = arg1;
             if (arg1)
             {
@@ -591,6 +605,50 @@ namespace CharacterIzuna
             if (agent == null) return;
             LoadAllHoldingItemRenderers();
             ReloadHoldingVisual();
+        }
+
+        private void SetCharacterShader()
+        {
+            Shader shader = Shader.Find(targetShaderName);
+            if (shader == null) 
+            {
+                Debug.LogError("Shader not found: " + targetShaderName);
+                return;
+            }
+            else
+            {
+                for (int i = 0; i < characterModel.transform.childCount; i++)
+                {
+                    if (characterModel.transform.GetChild(i).name.Contains("Izuna"))
+                    {
+                        ReplaceAllShaders(characterModel.transform.GetChild(i).Find("Izuna_Original_Mesh/Izuna_Original_Body"), shader);
+                        ReplaceAllShaders(characterModel.transform.GetChild(i).Find("Izuna_Original_Mesh/Izuna_Original_Shuriken_Outline"), shader);
+                        ReplaceAllShaders(characterModel.transform.GetChild(i).Find("Izuna_Original_Mesh/Izuna_Original_Weapon"), shader);
+                    }
+                }
+            }
+        }
+        private void ReplaceAllShaders(Transform target, Shader shader)
+        {
+            Renderer r = target.GetComponent<Renderer>();
+            if (r == null) return;
+
+            foreach (Material material in r.materials)
+            {
+                if (material != null)
+                {
+                    Texture mainTex = material.GetTexture("_BaseMap");
+                    material.shader = shader;
+                    material.SetTexture("_MainTex", mainTex);
+                    material.SetFloat("_AlphaCutoff", 0.75f);
+                    material.SetFloat("_Metallic", 0);
+                    material.SetFloat("_Smoothness", 0);
+                    if (material.name.Contains("EyeMouth"))
+                        material.SetTexture("_EmissionMap", mainTex);
+                    else
+                        material.SetColor("_EmissionColor", Color.black);
+                }
+            }
         }
 
         /// <summary>
