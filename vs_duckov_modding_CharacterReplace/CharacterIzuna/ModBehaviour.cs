@@ -90,8 +90,8 @@ namespace CharacterIzuna
         private List<MeshRenderer> mrToHide = new List<MeshRenderer>();
 
 
-        private List<MeshRenderer> characterMr = new List<MeshRenderer>();
-        private List<SkinnedMeshRenderer> characterSmr = new List<SkinnedMeshRenderer>();
+        //private List<MeshRenderer> characterMr = new List<MeshRenderer>();
+        //private List<SkinnedMeshRenderer> characterSmr = new List<SkinnedMeshRenderer>();
 
 
         private void Update()
@@ -103,18 +103,18 @@ namespace CharacterIzuna
                 LoadAllHoldingItemRenderers();
                 ReloadHoldingVisual();
             }
-            if (Input.GetKeyDown(KeyCode.L))
-            {
-                Debug.Log("CharacterMainControl.Main.modelRoot : " + CharacterMainControl.Main.modelRoot.name);
+            //if (Input.GetKeyDown(KeyCode.L))
+            //{
+            //    Debug.Log("CharacterMainControl.Main.modelRoot : " + CharacterMainControl.Main.modelRoot.name);
 
-                characterMr.Clear();
-                characterSmr.Clear();
-                LogName(characterModel.transform.parent);
-                Debug.Log($"找到 {characterMr.Count} 个角色模型MeshRenderer");
-                for (int i = 0; i < characterMr.Count; i++) Debug.Log($"{i + 1} : {characterMr[i].gameObject.name}");
-                Debug.Log($"找到 {characterSmr.Count} 个角色模型SkinnedMeshRenderer");
-                for (int i = 0; i < characterSmr.Count; i++) Debug.Log($"{i + 1} : {characterSmr[i].gameObject.name}");
-            }
+            //    characterMr.Clear();
+            //    characterSmr.Clear();
+            //    LogName(characterModel.transform.parent);
+            //    Debug.Log($"找到 {characterMr.Count} 个角色模型MeshRenderer");
+            //    for (int i = 0; i < characterMr.Count; i++) Debug.Log($"{i + 1} : {characterMr[i].gameObject.name}");
+            //    Debug.Log($"找到 {characterSmr.Count} 个角色模型SkinnedMeshRenderer");
+            //    for (int i = 0; i < characterSmr.Count; i++) Debug.Log($"{i + 1} : {characterSmr[i].gameObject.name}");
+            //}
             //测试切换手持物品为空测试
             //if (Input.GetKeyDown(KeyCode.Keypad0))
             //{
@@ -125,23 +125,28 @@ namespace CharacterIzuna
             //}
         }
 
-        private void LogName(Transform target)
-        {
-            string result = string.Format("{0}{1}", GetSpace(target), target.name);
-            Debug.Log(result);
 
-            MeshRenderer mr = target.GetComponent<MeshRenderer>();
-            SkinnedMeshRenderer smr = target.GetComponent<SkinnedMeshRenderer>();
-            if (mr != null) characterMr.Add(mr);
-            if (smr != null) characterSmr.Add(smr);
-            if (target.childCount > 0)
-            {
-                for (int i = 0; i < target.childCount; i++)
-                {
-                    LogName(target.GetChild(i));
-                }
-            }
-        }
+        /// <summary>
+        /// 测试输出结构
+        /// </summary>
+        /// <param name="target"></param>
+        //private void LogName(Transform target)
+        //{
+        //    string result = string.Format("{0}{1}", GetSpace(target), target.name);
+        //    Debug.Log(result);
+
+        //    MeshRenderer mr = target.GetComponent<MeshRenderer>();
+        //    SkinnedMeshRenderer smr = target.GetComponent<SkinnedMeshRenderer>();
+        //    if (mr != null) characterMr.Add(mr);
+        //    if (smr != null) characterSmr.Add(smr);
+        //    if (target.childCount > 0)
+        //    {
+        //        for (int i = 0; i < target.childCount; i++)
+        //        {
+        //            LogName(target.GetChild(i));
+        //        }
+        //    }
+        //}
 
         private void ToggleModel(bool value)
         {
@@ -548,7 +553,7 @@ namespace CharacterIzuna
         /// <param name="chara"></param>
         private void ActionStart(CharacterActionBase chara)
         {
-            Debug.Log(chara.ActionPriority());
+            //Debug.Log(chara.ActionPriority());
             if (characterAnimator == null) return;
             //判断是否为换弹行为
             if (chara.ActionPriority() == CharacterActionBase.ActionPriorities.Reload)
